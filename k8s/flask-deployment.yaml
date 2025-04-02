@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: flask-app
-        image: prathamlal20/python_mysql:latest
+        image: prathamlal20/flask-app:latest
         ports:
         - containerPort: 5000
         env:
