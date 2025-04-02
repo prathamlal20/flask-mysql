@@ -1,0 +1,51 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_IMAGE = "prathamlal20/flask-app"
+        DOCKER_REGISTRY_CREDENTIALS = 'dockerhub-creds'
+        KUBECONFIG = "/home/ubuntu/.kube/config" 
+    }
+
+    stages {
+        stage('Checkout Code') {
+            steps {
+                git branch: 'main', url: 'https://github.com/prathamlal20/flask-mysql.git'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    sh 'docker build -t $DOCKER_IMAGE:$BUILD_NUMBER .'
+                }
+            }
+        }
+
+        stage('Push Image to Docker Hub') {
+            steps {
+                script {
+                    withDockerRegistry([credentialsId: "$DOCKER_REGISTRY_CREDENTIALS", url: ""]) {
+                        sh 'docker push $DOCKER_IMAGE:$BUILD_NUMBER'
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Minikube') {
+            agent {
+                label 'Minikube-agent'
+            }
+            steps {
+                script {
+                    sh """
+                    kubectl apply -f k8s/flask-deployment.yaml
+                    kubectl apply -f k8s/flask-service.yaml
+                    kubectl set image deployment/flask-app flask-app=$DOCKER_IMAGE:$BUILD_NUMBER -n jenkins-agent
+                    kubectl rollout status deployment/flask-app -n jenkins-agent
+                    """
+                }
+            }
+        }
+    }
+}
